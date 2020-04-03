@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29911.84
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Scrabbot", "Scrabbot\Scrabbot.fsproj", "{AC196913-5D48-4A23-88CC-137CECED68A1}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Scrabbot", "Scrabbot\Scrabbot.fsproj", "{AC196913-5D48-4A23-88CC-137CECED68A1}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ThreeAmigosScrabbot", "ThreeAmigosScrabbot\ThreeAmigosScrabbot.fsproj", "{FC2A4347-3E71-47D4-82FA-DBCC29B75566}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{AC196913-5D48-4A23-88CC-137CECED68A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC196913-5D48-4A23-88CC-137CECED68A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC196913-5D48-4A23-88CC-137CECED68A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC2A4347-3E71-47D4-82FA-DBCC29B75566}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC2A4347-3E71-47D4-82FA-DBCC29B75566}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC2A4347-3E71-47D4-82FA-DBCC29B75566}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC2A4347-3E71-47D4-82FA-DBCC29B75566}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

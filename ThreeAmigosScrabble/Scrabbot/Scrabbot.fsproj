@@ -11,6 +11,7 @@
     <PackageReference Include="FSharp.Core" Version="4.7.1" />
     <PackageReference Include="FSharp.Quotations.Evaluator" Version="2.1.0" />
     <PackageReference Include="FsPickler" Version="5.3.1" />
+    <Content Include="EnglishDictionary.txt" />
     <None Include="Oxyphenbutazone.dll" />
     <None Include="Scrabbleserver.dll" />
     <None Include="ScrabbleUtil.dll" />
@@ -18,6 +19,12 @@
 
   <ItemGroup>
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup />
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThreeAmigosScrabbot\ThreeAmigosScrabbot.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
