@@ -45,14 +45,19 @@ module State =
     type state = {
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        points        : int                         // represents the amount of points local player has
+        board         : boardProg                   // represents the board, contains functions (squareProg) representing all squares.
+        //turn          : bool                        //represents if it is the local player's turn????
     }
 
-    let mkState pn h = { playerNumber = pn; hand = h }
+    let mkState pn h p b = { playerNumber = pn; hand = h; points = p; board = b }
 
-    let newState pn hand = mkState pn hand
+    let newState pn hand points board = mkState pn hand points board
     
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    let points st        = st.points
+    let board st         = st.board
 
 module Scrabble =
     open System.Threading
@@ -69,15 +74,25 @@ module Scrabble =
             let move = RegEx.parseMove input
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move)
+            send cstream (SMPlay move) //sends a play move to the server
+            //send cstream (SMPass) //sends a pass move to the server
+            //send cstream (SMForfeit) //sends a forfeit move to the server
+            //send cstream (SMChange pieceIdList) //sends a change pieces move to the server (I am swapping these pieces for new ones)
+
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
-            | RCM (CMPlaySuccess(ms, points, newPieces)) ->
+            | RCM (CMPlaySuccess(ms, points, newPieces)) -> // newPieces = (id,num)
+                let pieceIds = List.fold (fun (acc:uint32 list) (_,(id,_)) -> id::acc) [] move
+                let cleanedHand = List.foldBack MultiSet.removeSingle pieceIds st.hand // Removes pieces we have already placed
+                let refilledHand = List.foldBack (fun newPiece acc -> MultiSet.add (fst newPiece) (snd newPiece) acc) newPieces cleanedHand
+                
+                let newBoard = ScrabbleUtil.StandardBoard //figure out how to board board board using ms (the accepted move made)
+
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = st // This state needs to be updated
+                let st' = State.newState st.playerNumber refilledHand (st.points + points) newBoard // This state needs to be updated, missing new state things
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
@@ -115,5 +130,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.newState playerNumber handSet )
+        fun () -> playGame cstream tiles (State.newState playerNumber handSet 0 boardP) //probably needs updating... something something words/alphabet ensure bot only plays valid words FUUUUUUUUUUU
         
