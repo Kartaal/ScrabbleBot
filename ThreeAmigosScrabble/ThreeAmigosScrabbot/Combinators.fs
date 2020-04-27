@@ -282,8 +282,13 @@ module TextParser =
         | (None, ds)   -> int ds
         <?> "int"
 
+    
+    let unwrapRes res = match res with
+                        | Success (x,_) -> x
+                        | Failure err -> failwith (sprintf "%A" err)
+
     let runTextParser parser inputStr =
-        run parser (TextInputState.initialInputState inputStr)
+        run parser (TextInputState.initialInputState inputStr) |> unwrapRes
 
 
     let runParserFromFile parser path =

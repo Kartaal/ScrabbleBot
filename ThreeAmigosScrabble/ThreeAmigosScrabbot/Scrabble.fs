@@ -10,6 +10,8 @@ open System.Net.Sockets
 open System.IO
 open DebugPrint
 
+open Dictionary
+
 module RegEx =
     open System.Text.RegularExpressions
 
@@ -43,28 +45,36 @@ module State =
     // information, such as number of players, player turn, etc.
 
     type state = {
+        dictionary    : Dictionary
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
         points        : int                         // represents the amount of points local player has
-        board         : boardProg                   // represents the board, contains functions (squareProg) representing all squares.
+        board         : coord -> bool               // 
+        playedTiles   : Map<coord,char*int>         //Represents the coords and tiles played in the game
         //turn          : bool                        //represents if it is the local player's turn????
     }
 
-    let mkState pn h p b = { playerNumber = pn; hand = h; points = p; board = b }
-
-    let newState pn hand points board = mkState pn hand points board
+    let mkState d pn h p b pt = { dictionary = d; playerNumber = pn; hand = h; points = p; board = b; playedTiles = pt }
     
+    let dictionary st    = st.dictionary
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
     let points st        = st.points
     let board st         = st.board
+    let playedTiles st   = st.playedTiles
 
 module Scrabble =
     open System.Threading
+    open Ass7.ImpParser
+    open JParsec.TextParser
+    open Eval
 
     let playGame cstream pieces (st : State.state) =
+        
+        let newTilesPlayed tiles = List.fold (fun map (coord,(_,(char,value))) -> Map.add coord (char,value) map ) st.playedTiles tiles
 
         let rec aux (st : State.state) =
+        (*  MANUAL PLAY LINES START HERE   *)
             Thread.Sleep(5000) // only here to not confuse the pretty-printer. Remove later.
             Print.printHand pieces (State.hand st)
 
@@ -78,29 +88,60 @@ module Scrabble =
             //send cstream (SMPass) //sends a pass move to the server
             //send cstream (SMForfeit) //sends a forfeit move to the server
             //send cstream (SMChange pieceIdList) //sends a change pieces move to the server (I am swapping these pieces for new ones)
+            
+        (*  MANUAL PLAY LINES END HERE   *)
 
+            // TODO move finding algorithm
+
+            (* Bot figuring out moves here *)
+            //Run through playedTiles, check if character at that tile (n,m) matches first letter of legal word
+            //If it matches, check if tile (n,m+1) is useable, loop until word finished or cannot build word
+            //If (n,m+1) not useable, check (n+1,m) instead, loop until word finished or cannot build word
+            //If no match, check next playedTiles tile
+
+            (*Jesper comment
+            Have a function that returns (coord, (uint32, (char, int))) list option (that is the type the server expects) 
+                    that gradually builds all of the information the server needs. 
+            It's very difficult to do this in several cycles. 
+            It sort of needs to be done at once - traverse the board, alternate by what is on your hand 
+                and what is on your board, traverse your dictionary and 
+                backtrack as soon as something fails (cannot progress word, or building illegal word with crossing word). 
+
+            Your hand is a multiset.
+            Fold over that (MultiSet.fold)
+            Take the individual letters and check if they will continue the word.
+            If they do, remove a single element (MultiSet.removeSingle) from your hand and 
+                recurse making sure to save the coordinate, the id and so on that you used.
+            So your recursive function takes a hand, you fold over that and remove successful letter placements, 
+                and when you recurse you send your new hand. 
+            *)
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) -> // newPieces = (id,num)
+                (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
                 let pieceIds = List.fold (fun (acc:uint32 list) (_,(id,_)) -> id::acc) [] move
                 let cleanedHand = List.foldBack MultiSet.removeSingle pieceIds st.hand // Removes pieces we have already placed
                 let refilledHand = List.foldBack (fun newPiece acc -> MultiSet.add (fst newPiece) (snd newPiece) acc) newPieces cleanedHand
                 
-                let newBoard = ScrabbleUtil.StandardBoard //figure out how to board board board using ms (the accepted move made)
-
-                (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = State.newState st.playerNumber refilledHand (st.points + points) newBoard // This state needs to be updated, missing new state things
+                let playedTiles' = newTilesPlayed ms //adding new tiles to the map of already placed tiles
+                
+                let st' = State.mkState st.dictionary st.playerNumber refilledHand (st.points + points) st.board playedTiles' // This state needs to be updated, missing new state things
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = st // This state needs to be updated
+                let playedTiles' = newTilesPlayed ms //adding new tiles to the map of already placed tiles
+
+                //Not keeping track of other players' points
+                let st' = State.mkState st.dictionary st.playerNumber st.hand st.points st.board playedTiles'
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
-                let st' = st // This state needs to be updated
+                let playedTiles' = newTilesPlayed ms //adding new tiles to the map of already placed tiles
+
+                let st' = State.mkState st.dictionary st.playerNumber st.hand st.points st.board playedTiles'
                 aux st'
             | RCM (CMGameOver _) -> ()
             | RCM a -> failwith (sprintf "not implmented: %A" a)
@@ -112,7 +153,7 @@ module Scrabble =
     let startGame 
             (boardP : boardProg) 
             (alphabet : string) 
-            (words : string list) 
+            (words : string list)
             (numPlayers : uint32) 
             (playerNumber : uint32) 
             (playerTurn  : uint32) 
@@ -127,8 +168,22 @@ module Scrabble =
                       player turn = %d
                       hand =  %A
                       timeout = %A\n\n" numPlayers playerNumber playerTurn hand timeout)
-                  
-        let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
+        
+        let emptyDictionary = Dictionary.empty alphabet
+        let dictionary = List.fold (fun dict word -> Dictionary.insert word dict) emptyDictionary words //Should put alla the words from the words list into our dictionary
 
-        fun () -> playGame cstream tiles (State.newState playerNumber handSet 0 boardP) //probably needs updating... something something words/alphabet ensure bot only plays valid words FUUUUUUUUUUU
+        let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
+        let playedTiles : Map<coord,char*int> = Map.empty
+        
+        let mapSquareStringToStmnt = Map.map (fun _ -> runTextParser stmParse)
+
+        let squareStmts = Map.map (fun _ -> mapSquareStringToStmnt) boardP.squares //parses the strings for the squares to statements, keeping the data structure intact
+        
+        let mapSquareStmntToFun = Map.map (fun _ -> stmntToSquareFun)
+        let squareFuns = Map.map (fun _  -> mapSquareStmntToFun) squareStmts //Now has squareFuns!
+
+        let boardStmnt = runTextParser stmParse boardP.prog
+        let boardFun = stmntToBoardFun boardStmnt squareFuns //Now only has coord -> does square exist
+
+        fun () -> playGame cstream tiles (State.mkState dictionary playerNumber handSet 0 boardFun playedTiles) //probably needs updating... something something words/alphabet ensure bot only plays valid words FUUUUUUUUUUU
         
