@@ -7,3 +7,5 @@
     val insert : string -> Dictionary -> Dictionary
 
     val lookup : string -> Dictionary -> bool
+
+    val stepLookup : char -> Dictionary -> (bool*Map<char,Dictionary>) option

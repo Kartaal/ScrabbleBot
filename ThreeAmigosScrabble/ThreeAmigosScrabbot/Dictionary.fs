@@ -41,3 +41,7 @@
             then lookup newString (hasLetterOpt.Value)
             else false
 
+    let stepLookup (c:char) (Dict(_,map)) =
+        match map.TryFind c with
+        | Some (Dict(newB,newDict)) -> Some (newB,newDict)
+        | None -> None
