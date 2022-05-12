@@ -108,29 +108,6 @@ module Scrabble =
 
                                                 ) None hand
             
-        //Philip: Yes. But is it in the .fsi? i can try to add it. gimme a sec.
-        //It is in Dictionary.fs though, at the bottom
-
-        //what's in the hand? tile ids?
-        //And I suppose we use the tile ids with the pieces map to find the character and point value? 
-
-
-        (*Jesper comment
-        Have a function that returns (coord, (uint32, (char, int))) list option (that is the type the server expects) 
-                that gradually builds all of the information the server needs. 
-        It's very difficult to do this in several cycles. 
-        It sort of needs to be done at once - traverse the board, alternate by what is on your hand 
-            and what is on your board, traverse your dictionary and 
-            backtrack as soon as something fails (cannot progress word, or building illegal word with crossing word). 
-
-        Your hand is a multiset.
-        Fold over that (MultiSet.fold)
-        Take the individual letters and check if they will continue the word.
-        If they do, remove a single element (MultiSet.removeSingle) from your hand and 
-            recurse making sure to save the coordinate, the id and so on that you used.
-        So your recursive function takes a hand, you fold over that and remove successful letter placements, 
-            and when you recurse you send your new hand. 
-        *)
 
         let rec aux (st : State.state) =
         (*  MANUAL PLAY LINES START HERE   
@@ -157,19 +134,7 @@ module Scrabble =
             //send cstream (SMChange pieceIdList) //sends a change pieces move to the server (I am swapping these pieces for new ones)
             
 
-            // TODO move finding algorithm
-
-            (* Bot figuring out moves here *)
-            //Run through playedTiles, check if character at that tile (n,m) matches first letter of legal word
-            //If it matches, check if tile (n,m+1) is useable, loop until word finished or cannot build word
-            //If (n,m+1) not useable, check (n+1,m) instead, loop until word finished or cannot build word
-            //If no match, check next playedTiles tile
-
-
             let msg = recv cstream
-            if(move.IsSome)
-            then debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move.Value) // keep the debug lines. They are useful.
-            else debugPrint "Player passed"
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) -> // newPieces = (id,num)
@@ -217,13 +182,6 @@ module Scrabble =
             (tiles : Map<uint32, tile>)
             (timeout : uint32 option) 
             (cstream : Stream) =
-        debugPrint 
-            (sprintf "Starting game!
-                      number of players = %d
-                      player id = %d
-                      player turn = %d
-                      hand =  %A
-                      timeout = %A\n\n" numPlayers playerNumber playerTurn hand timeout)
         
         let emptyDictionary = Dictionary.empty alphabet
         let dictionary = List.fold (fun dict word -> Dictionary.insert word dict) emptyDictionary words //Should put all the words from the words list into our dictionary
